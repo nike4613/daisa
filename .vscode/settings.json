@@ -13,6 +13,7 @@
     "atomic": "cpp",
     "bit": "cpp",
     "*.tcc": "cpp",
+    "*.inc": "cpp",
     "compare": "cpp",
     "concepts": "cpp",
     "cstdint": "cpp",
@@ -44,6 +45,7 @@
     "ranges": "cpp",
     "stdexcept": "cpp",
     "streambuf": "cpp",
-    "typeinfo": "cpp"
+    "typeinfo": "cpp",
+    "span": "cpp"
   }
 }

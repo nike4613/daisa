@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <span>
 #include <daisa/types.hpp>
 
 namespace daisa {
@@ -26,53 +27,25 @@ namespace detail {
 }
 
 enum class OpCode : u8 {
-  NOP = detail::noarg_op(0b000000),
-  JF = detail::arg_op(0b00001),
-  JN = detail::arg_op(0b00010),
-  Jc = detail::arg_op(0b00011, ArgKind::Cond),
-
-  CALLN = detail::arg_op(0b00100),
-  CALLF = detail::arg_op(0b00101),
-  RET = detail::noarg_op(0b000001),
-  PUSH = detail::arg_op(0b00110),
-  POP = detail::arg_op(0b00111, ArgKind::RegOnly),
-  PUSH_CSR = detail::noarg_op(0b001001),
-  POP_CSR = detail::noarg_op(0b001010),
-  LDA_CSR = detail::noarg_op(0b001100),
-  STA_CSR = detail::noarg_op(0b001101),
-
-  LDDS = detail::arg_op(0b10000),
-  STDS = detail::arg_op(0b10001, ArgKind::RegOnly),
-  LDSS = detail::arg_op(0b10010),
-  STSS = detail::arg_op(0b10011, ArgKind::RegOnly),
-
-  LDA = detail::arg_op(0b01000),
-  STA = detail::arg_op(0b01001, ArgKind::RegOnly),
-  LDM = detail::arg_op(0b01010),
-  STM = detail::arg_op(0b01011),
-
-  SWP = detail::arg_op(0b10100, ArgKind::RegOnly),
-  INC_A = detail::noarg_op(0b000010),
-  DEC_A = detail::noarg_op(0b000011),
-  INC = detail::arg_op(0b10101, ArgKind::RegOnly),
-  DEC = detail::arg_op(0b10110, ArgKind::RegOnly),
-  ADD = detail::arg_op(0b01100),
-  SUB = detail::arg_op(0b01101),
-  SHL = detail::noarg_op(0b000100),
-  SHR = detail::noarg_op(0b000101),
-  ROL = detail::noarg_op(0b000110),
-  ROR = detail::noarg_op(0b000111),
-  AND = detail::arg_op(0b01110),
-  OR = detail::arg_op(0b01111),
-  XOR = detail::arg_op(0b00000),
-  CLR = detail::noarg_op(0b001000),
-
-  ENI = detail::noarg_op(0b001110),
-  DSI = detail::noarg_op(0b001111),
-  IRET = detail::noarg_op(0b010000),
-  
-  HLT = detail::noarg_op(0b001011),
+  #define INSN_NARG(name, bits) name = detail::noarg_op(bits),
+  #define INSN_ARG_(name, bits, kind) name = detail::arg_op(bits, kind),
+  #define KIND_IMMREG ArgKind::ImmReg
+  #define KIND_REG ArgKind::RegOnly
+  #define KIND_COND ArgKind::Cond
+  #include <daisa/isa.inc>
+  #undef KIND_IMMREG
+  #undef KIND_REG
+  #undef KIND_COND
+  #undef INSN_NARG
+  #undef INSN_ARG_
 };
+
+[[nodiscard]] inline constexpr bool opcode_is_valid(OpCode opcode) {
+  #define INSN_ANY(name) if (opcode == OpCode::name) return true;
+  #include <daisa/isa.inc>
+  #undef INSN_ANY
+  return false;
+}
 
 // @breif
 //   Checks whether the opcode has an argumment
@@ -101,6 +74,8 @@ enum class Register : u8 {
 enum class Condition : u8 {
   // TODO: what conditions need to be available?
 };
+
+struct DisassemblyResult;
 
 class Instruction {
 private:
@@ -142,6 +117,8 @@ public:
   [[nodiscard]] static constexpr std::optional<Instruction> create(OpCode op, u8 arg) noexcept;
   [[nodiscard]] static constexpr std::optional<Instruction> create(OpCode op, Condition cond, u8 arg) noexcept;
 
+  [[nodiscard]] constexpr u8 length() const noexcept { return hasImm ? 2 : 1; }
+
   [[nodiscard]] constexpr OpCode opcode() const noexcept { return opcode_; }
   [[nodiscard]] constexpr bool has_immediate() const noexcept { return hasImm; }
   [[nodiscard]] constexpr u8 immedidate() const noexcept { return immediateValue; }
@@ -150,8 +127,40 @@ public:
   [[nodiscard]] constexpr bool has_cond_argument() const noexcept { return argInfo == argInfo_cond; }
   [[nodiscard]] constexpr Register reg_argument() const noexcept { return arg.reg; }
   [[nodiscard]] constexpr Condition cond_argument() const noexcept { return arg.cond; }
+
+  [[nodiscard]] static constexpr DisassemblyResult disassemble(std::span<u8 const> const&) noexcept;
 };
 
+enum class FailureReason {
+  None,
+
+  InvalidArgument,
+  InvalidOpCode,
+  NoData,
+  NoImmediate,
+};
+
+struct DisassemblyResult {
+  std::optional<Instruction> instruction;
+  std::span<u8 const> continueFrom;
+  FailureReason reason;
+
+  constexpr DisassemblyResult(DisassemblyResult const&) noexcept = default;
+  constexpr DisassemblyResult(DisassemblyResult&&) noexcept = default;
+  constexpr DisassemblyResult& operator=(DisassemblyResult const&) noexcept = default;
+  constexpr DisassemblyResult& operator=(DisassemblyResult&&) noexcept = default;
+
+  // intentionally implicit
+  constexpr DisassemblyResult(FailureReason reason) noexcept : reason(reason) {}
+  constexpr DisassemblyResult(FailureReason reason, std::span<u8 const> data) noexcept
+   : continueFrom(data), reason(reason) {}
+  constexpr DisassemblyResult(Instruction insn, std::span<u8 const> data) noexcept
+   : instruction(insn), continueFrom(data), reason(FailureReason::None) {}
+
+  constexpr operator bool() const noexcept { return instruction.has_value(); }
+};
+
+// implmentations
 
 constexpr std::optional<Instruction> Instruction::create(OpCode op) noexcept {
   if (opcode_has_arg(op))
@@ -181,7 +190,6 @@ constexpr std::optional<Instruction> Instruction::create(OpCode op, u8 imm) noex
   return Instruction(op, imm, Register::Imm);
 }
 
-
 constexpr std::optional<Instruction> Instruction::create(OpCode op, Condition cond, u8 imm) noexcept {
   auto opArg = opcode_has_arg(op);
   if (!opArg)
@@ -190,6 +198,72 @@ constexpr std::optional<Instruction> Instruction::create(OpCode op, Condition co
   if (argKind != ArgKind::Cond)
     return std::nullopt; // opcode must take condition
   return Instruction(op, imm, cond);
+}
+
+constexpr DisassemblyResult Instruction::disassemble(std::span<u8 const> const& data) noexcept {
+  if (data.size() <= 0)
+    return FailureReason::NoData; // with no data, there's no reason to return the span
+  auto opcodeb = data[0];
+  auto cont = data.subspan(1);
+
+  using namespace detail;
+  if ((opcodeb & noarg_check_bits) == noarg_check_bits) {
+    // takes no argument
+    auto opcode = static_cast<OpCode>(opcodeb);
+    if (!opcode_is_valid(opcode))
+      return DisassemblyResult(FailureReason::InvalidOpCode, cont);
+    auto insn = create(opcode);
+    if (!insn)
+      return DisassemblyResult(FailureReason::InvalidArgument, cont);
+    return DisassemblyResult(*insn, cont);
+  }
+
+  // otherwise, we take an argument
+  auto opcodeBits = (opcodeb & 0b11111000) >> 3;
+  auto createReg = [&](OpCode op, u8 arg) {
+    auto reg = static_cast<Register>(arg & 0b111);
+    if (reg == Register::Imm) {
+      if (cont.size() <= 0)
+        return DisassemblyResult(FailureReason::NoImmediate, cont);
+      auto imm = cont[0];
+      cont = cont.subspan(1);
+      auto insn = create(op, imm);
+      if (!insn)
+        return DisassemblyResult(FailureReason::InvalidArgument, cont);
+      return DisassemblyResult(*insn, cont);
+    }
+    auto insn = create(op, reg);
+    if (!insn)
+      return DisassemblyResult(FailureReason::InvalidArgument, cont);
+    return DisassemblyResult(*insn, cont);
+  };
+  auto createCond = [&](OpCode op, u8 arg) {
+    auto cond = static_cast<Condition>(arg & 0b111);
+    // the only condition opcode takes an immediate too
+    if (cont.size() <= 0)
+      return DisassemblyResult(FailureReason::NoImmediate);
+    auto imm = cont[0];
+    cont = cont.subspan(1);
+    auto insn = create(op, cond, imm);
+    if (!insn)
+      return DisassemblyResult(FailureReason::InvalidArgument, cont);
+    return DisassemblyResult(*insn, cont);
+  };
+
+  #define KIND_IMMREG createReg
+  #define KIND_REG createReg
+  #define KIND_COND createCond
+  #define INSN_ARG(name, bits, kind) \
+    if (opcodeBits == bits) { \
+      return (kind)(OpCode::name, opcodeBits & 0b111); \
+    }
+  #include <daisa/isa.inc>
+  #undef KIND_IMMREG
+  #undef KIND_REG
+  #undef KIND_CONT
+  #undef INSN_ARG
+
+  return DisassemblyResult(FailureReason::InvalidOpCode, cont);
 }
 
 }
