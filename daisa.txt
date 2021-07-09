@@ -1,0 +1,87 @@
+registers:
+
+enc | abr | description
+----+-----+-----------------------------------------------------------
+    | a   | accumulator
+    | cs  | code segment register
+    | ds  | data segment register
+    | ss  | stack segment register
+    | ip  | instruction pointer (actual instruction location is cs:ip)
+    | csr | code segment return register
+----+-----+-----------------------------------------------------------
+000 |     | loads the next byte as an immediate
+001 | r1  | first general purpose register
+010 | r2  | second general purpose register
+011 | r3  | third general purpose register    
+100 | r4  | fourth general purpose register
+101 | lr  | link register (usable as a GPR)
+110 | sp  | stack pointer
+111 | bp  | stack base pointer
+----+-----+-----------------------------------------------------------
+
+segment register is the high byte of address
+
+any [ds:r] accesses use [ss:r] when r is either sp or bp
+
+push and pop's increment/decrement can also increment the stack segment register
+
+instructions:
+
+mnemonic    | description                                                                   | encoding
+------------+-------------------------------------------------------------------------------+---------
+nop         | does nothing                                                                  | 11000000
+jf r        | far jump (cs <- a, ip <- r)                                                   | 00001rrr
+jn r        | near jump (ip <- r)                                                           | 00010rrr
+jc* imm     | conditional near jump (ip <- imm) (c is some condition)                       | 00011ccc
+------------+-------------------------------------------------------------------------------+---------
+calln r     | calls subroutine near (csr <- cs, tmp <- ip, ip <- r, lr <- tmp)              | 00100rrr
+callf r     | calls subroutine far (csr <- cs, tmp <- ip, cs <- a, ip <- r, lr <- tmp)      | 00101rrr
+ret         | returns from subroutine (cs <- csr, ip <- lr)                                 | 11000001
+push r      | pushes value to stack ([ss:sp] <- r, inc ss:sp)                               | 00110rrr
+pop r       | pops value from stack (dec ss:sp, r <- [ss:sp])                               | 00111rrr
+push csr    | pushes code segment return to stack                                           | 11001001
+pop csr     | pops code segment return from stack                                           | 11001010
+lda csr     | copies the value in csr to the accumulator                                    | 11001100
+sta csr     | copies the value in the accumulator to csr                                    | 11001101
+------------+-------------------------------------------------------------------------------+---------
+ldds r      | loads r into ds (ds <- r)                                                     | 10000rrr
+stds r      | stores the value in ds into r (r <- ds)                                       | 10001rrr
+ldss r      | loads r into ss (ss <- r)                                                     | 10010rrr
+stss r      | stores the value in ss into r (r <- ss)                                       | 10011rrr
+------------+-------------------------------------------------------------------------------+---------
+lda r       | loads r into the accumulator (a <- r)                                         | 01000rrr
+sta r       | stores the accumulator into r (r <- a)                                        | 01001rrr
+ldm r       | loads the value at memory address ds:r into the accumulator (a <- [ds:r])     | 01010rrr
+stm r       | stores the value in the accumulator into memory address ds:r ([ds:r] <- a)    | 01011rrr
+------------+-------------------------------------------------------------------------------+---------
+swp r       | exchanges the value in a with the value in r                                  | 10100rrr
+inc a       | increments the accumulator                                                    | 11000010
+dec a       | decrements the accumulator                                                    | 11000011
+inc r       | increments the value in r (r <- r+1)                                          | 10101rrr
+dec r       | decrements the value in r (r <- r-1)                                          | 10110rrr
+add r       | adds r to the accumulator (a <- a+r)                                          | 01100rrr
+sub r       | subtracts r from the accumulator (a <- a-r)                                   | 01101rrr
+shl         | shift accumulator left 1                                                      | 11000100
+shr         | shift accumulator right 1                                                     | 11000101
+rol         | rotate accumulator left 1                                                     | 11000110
+ror         | rotate accumulator right 1                                                    | 11000111
+and r       | bitwise and with accumulator (a <- a & r)                                     | 01110rrr
+or r        | bitwise or with accumulator (a <- a | r)                                      | 01111rrr
+xor r       | bitwise xor with accumulator (a <- a ^ r)                                     | 00000rrr
+clr         | zeroes the accumulator (a <- 0)                                               | 11001000
+------------+-------------------------------------------------------------------------------+---------
+eni         | enables interrupts                                                            | 11001110
+dsi         | disables interrupts                                                           | 11001111
+iret        | returns from an interrupt routine (more on that in the interrupt section)     | 11010000
+------------+-------------------------------------------------------------------------------+---------
+hlt         | halts the CPU                                                                 | 11001011
+------------+-------------------------------------------------------------------------------+---------
+
+interrupts:
+
+The address of the interrupt routine is stored at ff:fe as a full 2-byte address, with the cs as the low
+byte, and the ip as the high byte. When an interrupt is triggered, further interrupts are disabled, and
+the current code segment and instruction pointer are pushed to the stack. The routine must use iret to
+return from the interrupt routine. This instruction first pops the instruction pointer and code segment
+from the stack, then re-enables interrupts and continues execution as normal. The interrupt routine is
+responsible for preserving all registers, including the segment registers.

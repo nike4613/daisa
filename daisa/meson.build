@@ -6,32 +6,22 @@ project('daisa', 'cpp',
 # not the executables that use the library.
 lib_args = ['-DBUILDING_DAISA']
 
+includes = include_directories('include')
+
 shlib = static_library('daisa', 'daisa.cpp',
   install : true,
   cpp_args : lib_args,
   gnu_symbol_visibility : 'hidden',
+  include_directories : includes,
   pic : true,
 )
 
 test_exe = executable('daisa_test', 'daisa_test.cpp',
-  link_with : shlib)
+  link_with : shlib,
+  include_directories : includes)
 test('daisa', test_exe)
 
 # Make this library usable as a Meson subproject.
 daisa_dep = declare_dependency(
-  include_directories: include_directories('.'),
+  include_directories : includes,
   link_with : shlib)
-
-# Make this library usable from the system's
-# package manager.
-install_headers('daisa.hpp', subdir : 'daisa')
-
-pkg_mod = import('pkgconfig')
-pkg_mod.generate(
-  name : 'daisa',
-  filebase : 'daisa',
-  description : 'Meson sample project.',
-  subdirs : 'daisa',
-  libraries : shlib,
-  version : '0.1',
-)
