@@ -19,7 +19,8 @@ shlib = static_library('daisa', 'daisa.cpp',
 test_exe = executable('daisa_test', 'daisa_test.cpp',
   link_with : shlib,
   include_directories : includes)
-test('daisa', test_exe)
+
+test('instruction', test_exe, args: ['instruction'])
 
 # Make this library usable as a Meson subproject.
 daisa_dep = declare_dependency(

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <daisa/types.hpp>
 
 namespace daisa {
@@ -11,10 +12,11 @@ enum class ArgKind : u8 {
 };
 
 namespace detail {
-  constexpr u8 noarg_op(u8 val) {
-    return 0b11000000u | (val & 0b00111111u);
+  inline constexpr u8 noarg_check_bits = 0b11000000u;
+  inline constexpr u8 noarg_op(u8 val) {
+    return noarg_check_bits | (val & ~noarg_check_bits);
   }
-  constexpr u8 arg_op(u8 val, ArgKind argKind = ArgKind::ImmReg) {
+  inline constexpr u8 arg_op(u8 val, ArgKind argKind = ArgKind::ImmReg) {
     auto highBits = val & 0b11000;
     if (highBits == 0b11000)
       throw "Arg op cannot have both high bits set";
@@ -71,5 +73,18 @@ enum class Opcode : u8 {
   
   HLT = detail::noarg_op(0b001011),
 };
+
+// @breif
+//   Checks whether the opcode has an argumment
+// and returns the kind of argument if it does.
+inline std::optional<ArgKind> opcode_has_arg(Opcode opcode) {
+  using namespace detail;
+  if ((static_cast<u8>(opcode) & noarg_check_bits) == noarg_check_bits) {
+    // no argument
+    return std::nullopt;
+  }
+  // our argument is the low 3 bits
+  return static_cast<ArgKind>(static_cast<u8>(opcode) & 0b111);
+}
 
 }
