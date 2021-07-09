@@ -2,16 +2,10 @@ project('daisa', 'cpp',
   version : '0.1',
   default_options : ['warning_level=3', 'cpp_std=c++20'])
 
-# These arguments are only used to build the shared library
-# not the executables that use the library.
-lib_args = ['-DBUILDING_DAISA']
-
 includes = include_directories('include')
 
-shlib = static_library('daisa', 'daisa.cpp',
-  install : true,
-  cpp_args : lib_args,
-  gnu_symbol_visibility : 'hidden',
+shlib = static_library('daisa', 
+  'daisa.cpp',
   include_directories : includes,
   pic : true,
 )

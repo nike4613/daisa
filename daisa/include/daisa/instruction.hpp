@@ -25,7 +25,7 @@ namespace detail {
   }
 }
 
-enum class Opcode : u8 {
+enum class OpCode : u8 {
   NOP = detail::noarg_op(0b000000),
   JF = detail::arg_op(0b00001),
   JN = detail::arg_op(0b00010),
@@ -77,7 +77,7 @@ enum class Opcode : u8 {
 // @breif
 //   Checks whether the opcode has an argumment
 // and returns the kind of argument if it does.
-inline std::optional<ArgKind> opcode_has_arg(Opcode opcode) {
+[[nodiscard]] inline constexpr std::optional<ArgKind> opcode_has_arg(OpCode opcode) {
   using namespace detail;
   if ((static_cast<u8>(opcode) & noarg_check_bits) == noarg_check_bits) {
     // no argument
@@ -85,6 +85,111 @@ inline std::optional<ArgKind> opcode_has_arg(Opcode opcode) {
   }
   // our argument is the low 3 bits
   return static_cast<ArgKind>(static_cast<u8>(opcode) & 0b111);
+}
+
+enum class Register : u8 {
+  Imm = 0b000,
+  R1 = 0b001,
+  R2 = 0b010,
+  R3 = 0b011,
+  R4 = 0b100,
+  LR = 0b101,
+  SP = 0b110,
+  BP = 0b111,
+};
+
+enum class Condition : u8 {
+  // TODO: what conditions need to be available?
+};
+
+class Instruction {
+private:
+  OpCode opcode_;
+  u8 immediateValue;
+  union {
+    Register reg;
+    Condition cond;
+    u8 none;
+  } arg;
+  bool hasImm : 1;
+  u8 argInfo : 2;
+
+  static constexpr u8 argInfo_none = 0b00;
+  static constexpr u8 argInfo_reg = 0b01;
+  static constexpr u8 argInfo_cond = 0b10;
+
+  constexpr Instruction(OpCode op, u8 imm, Register r) noexcept
+    : opcode_(op), immediateValue(imm), arg{ .reg = r },
+      hasImm(r == Register::Imm), argInfo(argInfo_reg)
+  {}
+  constexpr Instruction(OpCode op, u8 imm, Condition c) noexcept
+    : opcode_(op), immediateValue(imm), arg{ .cond = c },
+      hasImm(true), argInfo(argInfo_cond)
+  {}
+  constexpr explicit Instruction(OpCode op) noexcept
+    : opcode_(op), immediateValue(0), arg{ .none = 0 },
+      hasImm(false), argInfo(argInfo_none)
+  {}
+
+public:
+
+  constexpr Instruction(Instruction const&) noexcept = default;
+  constexpr Instruction(Instruction&&) noexcept = default;
+
+  // TODO: make these use a result type of some kind
+  [[nodiscard]] static constexpr std::optional<Instruction> create(OpCode op) noexcept;
+  [[nodiscard]] static constexpr std::optional<Instruction> create(OpCode op, Register arg) noexcept;
+  [[nodiscard]] static constexpr std::optional<Instruction> create(OpCode op, u8 arg) noexcept;
+  [[nodiscard]] static constexpr std::optional<Instruction> create(OpCode op, Condition cond, u8 arg) noexcept;
+
+  [[nodiscard]] constexpr OpCode opcode() const noexcept { return opcode_; }
+  [[nodiscard]] constexpr bool has_immediate() const noexcept { return hasImm; }
+  [[nodiscard]] constexpr u8 immedidate() const noexcept { return immediateValue; }
+  [[nodiscard]] constexpr bool has_argument() const noexcept { return argInfo != argInfo_none; }
+  [[nodiscard]] constexpr bool has_reg_argument() const noexcept { return argInfo == argInfo_reg; }
+  [[nodiscard]] constexpr bool has_cond_argument() const noexcept { return argInfo == argInfo_cond; }
+  [[nodiscard]] constexpr Register reg_argument() const noexcept { return arg.reg; }
+  [[nodiscard]] constexpr Condition cond_argument() const noexcept { return arg.cond; }
+};
+
+
+constexpr std::optional<Instruction> Instruction::create(OpCode op) noexcept {
+  if (opcode_has_arg(op))
+    return std::nullopt;
+  return Instruction(op);
+}
+
+constexpr std::optional<Instruction> Instruction::create(OpCode op, Register arg) noexcept {
+  auto opArg = opcode_has_arg(op);
+  if (!opArg)
+    return std::nullopt; // opcode must take argument
+  auto argKind = *opArg;
+  if (argKind != ArgKind::ImmReg && argKind != ArgKind::RegOnly)
+    return std::nullopt; // opcode must take register
+  if (arg == Register::Imm)
+    return std::nullopt; // if passsing an immediate, must actually give it a value
+  return Instruction(op, 0, arg);
+}
+
+constexpr std::optional<Instruction> Instruction::create(OpCode op, u8 imm) noexcept {
+  auto opArg = opcode_has_arg(op);
+  if (!opArg)
+    return std::nullopt; // opcode must take argument
+  auto argKind = *opArg;
+  if (argKind != ArgKind::ImmReg)
+    return std::nullopt; // opcode must take immediate
+  return Instruction(op, imm, Register::Imm);
+}
+
+
+constexpr std::optional<Instruction> Instruction::create(OpCode op, Condition cond, u8 imm) noexcept {
+  auto opArg = opcode_has_arg(op);
+  if (!opArg)
+    return std::nullopt; // opcode must take argument
+  auto argKind = *opArg;
+  if (argKind != ArgKind::Cond)
+    return std::nullopt; // opcode must take condition
+  return Instruction(op, imm, cond);
 }
 
 }

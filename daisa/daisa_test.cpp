@@ -6,8 +6,8 @@
 bool instruction_test() {
     using namespace daisa;
     return 
-        opcode_has_arg(Opcode::LDA_CSR) == std::nullopt &&
-        opcode_has_arg(Opcode::POP).value_or(static_cast<ArgKind>(-1)) == ArgKind::RegOnly &&
+        opcode_has_arg(OpCode::LDA_CSR) == std::nullopt &&
+        opcode_has_arg(OpCode::POP).value_or(static_cast<ArgKind>(-1)) == ArgKind::RegOnly &&
         true;
 }
 
