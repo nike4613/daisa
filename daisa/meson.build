@@ -14,6 +14,7 @@ test_exe = executable('daisa_test', 'daisa_test.cpp',
   include_directories : includes)
 
 test('instruction', test_exe, args: ['instruction'])
+test('assemble_blocks', test_exe, args: ['assemble_blocks'])
 
 # Make this library usable as a Meson subproject.
 daisa_dep = declare_dependency(

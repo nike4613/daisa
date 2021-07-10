@@ -284,4 +284,65 @@ constexpr DisassemblyResult Instruction::disassemble(std::span<u8 const> const& 
   #undef INSN_ARG
 }
 
+
+struct AssembleResult {
+  std::array<u8, 256> output;
+  std::span<Instruction const> continueWith;
+  std::optional<u8> nextFirstByte;
+
+  [[nodiscard]] constexpr bool has_remaining() const noexcept { return continueWith.size() > 0; }
+};
+
+// implementation
+
+namespace detail {
+  constexpr void assemble_segment(AssembleResult const& lastResult, AssembleResult& result) noexcept {
+    auto& outData = result.output;
+    auto addr = 0;
+    auto write = [&](u8 value) {
+      outData[addr++] = value;
+    };
+
+    auto insns = lastResult.continueWith;
+    auto takeInsn = [&]() {
+      auto insn = insns[0];
+      insns = insns.subspan(1);
+      return insn;
+    };
+
+    if (lastResult.nextFirstByte) {
+      write(*lastResult.nextFirstByte);
+    }
+    result.nextFirstByte = {};
+    // ^^ the above *must* be in this order, because lastResult and result may be the same
+
+    while (addr < 256 && insns.size() > 0) {
+      auto insn = takeInsn();
+      write(insn.encode());
+      if (insn.has_immediate()) {
+        if (addr >= 256) { // we can't write anymore
+          result.nextFirstByte = insn.immedidate();
+        } else {
+          write(insn.immedidate());
+        }
+      }
+    }
+
+    result.continueWith = insns;
+  }
+}
+
+constexpr AssembleResult assemble_segment(std::span<Instruction const> input) noexcept {
+  auto result = AssembleResult({}, input, std::nullopt); // create our value on stack, with NVRO
+  detail::assemble_segment(result, result); //   because we weren't given a previous, we want to use the
+                                            // same reference to avoid allocating multiple 256-byte blocks
+  return result;
+}
+
+constexpr AssembleResult assemble_segment(AssembleResult const& lastResult) noexcept {
+  AssembleResult result; // make sure this NVRO's
+  detail::assemble_segment(lastResult, result);
+  return result;
+}
+
 }

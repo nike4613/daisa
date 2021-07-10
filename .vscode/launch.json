@@ -9,7 +9,7 @@
       "type": "cppdbg",
       "request": "launch",
       "program": "${workspaceFolder}/daisa/builddir/daisa_test",
-      "args": ["instruction"],
+      "args": ["assemble_blocks"],
       "stopAtEntry": false,
       "cwd": "${fileDirname}",
       "environment": [],

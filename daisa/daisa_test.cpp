@@ -3,6 +3,7 @@
 
 #include <string>
 #include <array>
+#include <vector>
 
 bool instruction_test() {
     using namespace daisa;
@@ -79,6 +80,46 @@ bool instruction_test() {
         true;
 }
 
+auto assemble_all(std::span<daisa::Instruction const> insns) {
+    using namespace daisa;
+    std::vector<std::array<u8, 256>> segments;
+    auto result = assemble_segment(insns);
+    while (result.has_remaining()) {
+        segments.push_back(result.output);
+        result = assemble_segment(result);
+    }
+    segments.push_back(result.output);
+    return segments;
+}
+
+bool assemble_blocks_test() {
+    using namespace daisa;
+    constexpr auto insns = std::array{
+        *Instruction::create(OpCode::SHL),
+        *Instruction::create(OpCode::DEC, Register::R1),
+        *Instruction::create(OpCode::Jc, (Condition)1/*TBD*/, 0),
+        *Instruction::create(OpCode::RET)
+    };
+    auto segments = assemble_all(insns);
+    constexpr auto expectSegments = std::array<std::array<u8, 256>, 1>{
+        std::array<u8, 256>{
+            0b11000100, // SHL
+            0b10110001, // DEC r1
+            0b00011001, 0, // Jnz(TBD) 0
+            0b11000001 // RET
+        }
+    };
+    constexpr auto constexprSeg = assemble_segment(insns).output;
+
+    if (constexprSeg != expectSegments[0]) return false;
+    if (segments.size() != expectSegments.size()) return false;
+    for (auto i = 0u; i < segments.size(); i++) {
+        if (segments[i] != expectSegments[i]) return false;
+    }
+
+    return true;
+}
+
 int main(int argc, char **argv) {
     if(argc != 2) {
         std::cout << argv[0] << " takes one argument.\n";
@@ -86,6 +127,8 @@ int main(int argc, char **argv) {
     }
     if (std::string(argv[1]) == "instruction")
         return !instruction_test();
+    if (std::string(argv[1]) == "assemble_blocks")
+        return !assemble_blocks_test();
 
     std::cout << "Unrecognized test." << std::endl;
     return 0;
