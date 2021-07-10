@@ -41,8 +41,11 @@ enum class OpCode : u8 {
 };
 
 [[nodiscard]] inline constexpr bool opcode_is_valid(OpCode opcode) {
-  #define INSN_ANY(name) if (opcode == OpCode::name) return true;
-  #include <daisa/isa.inc>
+  #define INSN_ANY(name) case OpCode::name: return true;
+  switch (opcode) {
+    #include <daisa/isa.inc>
+  default: return false;
+  }
   #undef INSN_ANY
   return false;
 }

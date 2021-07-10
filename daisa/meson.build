@@ -4,10 +4,9 @@ project('daisa', 'cpp',
 
 includes = include_directories('include')
 
-shlib = static_library('daisa', 
+shlib = library('daisa', 
   'daisa.cpp',
   include_directories : includes,
-  pic : true,
 )
 
 test_exe = executable('daisa_test', 'daisa_test.cpp',
