@@ -128,6 +128,7 @@ public:
   [[nodiscard]] constexpr Register reg_argument() const noexcept { return arg.reg; }
   [[nodiscard]] constexpr Condition cond_argument() const noexcept { return arg.cond; }
 
+  [[nodiscard]] constexpr u8 encode() const noexcept;
   [[nodiscard]] static constexpr DisassemblyResult disassemble(std::span<u8 const> const&) noexcept;
 };
 
@@ -200,6 +201,17 @@ constexpr std::optional<Instruction> Instruction::create(OpCode op, Condition co
   return Instruction(op, imm, cond);
 }
 
+constexpr u8 Instruction::encode() const noexcept {
+  if (!has_argument())
+    return static_cast<u8>(opcode());
+
+  auto argbits = has_reg_argument()
+    ? static_cast<u8>(reg_argument())
+    : static_cast<u8>(cond_argument());
+
+  return (static_cast<u8>(opcode()) & 0b11111000) | (argbits & 0b111);
+}
+
 constexpr DisassemblyResult Instruction::disassemble(std::span<u8 const> const& data) noexcept {
   if (data.size() <= 0)
     return FailureReason::NoData; // with no data, there's no reason to return the span
@@ -219,10 +231,12 @@ constexpr DisassemblyResult Instruction::disassemble(std::span<u8 const> const& 
   }
 
   // otherwise, we take an argument
-  auto opcodeBits = (opcodeb & 0b11111000) >> 3;
   auto createReg = [&](OpCode op, u8 arg) {
     auto reg = static_cast<Register>(arg & 0b111);
     if (reg == Register::Imm) {
+      // specifically check for this and return early so as to not try to consume the immediate
+      if (*opcode_has_arg(op) != ArgKind::ImmReg)
+        return DisassemblyResult(FailureReason::InvalidArgument, cont);
       if (cont.size() <= 0)
         return DisassemblyResult(FailureReason::NoImmediate, cont);
       auto imm = cont[0];
@@ -254,16 +268,17 @@ constexpr DisassemblyResult Instruction::disassemble(std::span<u8 const> const& 
   #define KIND_REG createReg
   #define KIND_COND createCond
   #define INSN_ARG(name, bits, kind) \
-    if (opcodeBits == bits) { \
-      return (kind)(OpCode::name, opcodeBits & 0b111); \
-    }
-  #include <daisa/isa.inc>
+    case bits: \
+      return kind(OpCode::name, opcodeb & 0b111);
+  switch ((opcodeb & 0b11111000) >> 3) {
+    #include <daisa/isa.inc>
+    default:
+      return DisassemblyResult(FailureReason::InvalidOpCode, cont);
+  }
   #undef KIND_IMMREG
   #undef KIND_REG
   #undef KIND_CONT
   #undef INSN_ARG
-
-  return DisassemblyResult(FailureReason::InvalidOpCode, cont);
 }
 
 }
