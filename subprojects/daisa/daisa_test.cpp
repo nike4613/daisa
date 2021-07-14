@@ -74,9 +74,10 @@ bool instruction_test() {
     if (result9.instruction.has_value()) return false;
     if (result9.reason != FailureReason::NoData) return false;
 
+    ArgKind kind;
     return 
-        opcode_has_arg(OpCode::LDA_CSR) == std::nullopt &&
-        opcode_has_arg(OpCode::POP).value_or(static_cast<ArgKind>(-1)) == ArgKind::RegOnly &&
+        opcode_has_arg(OpCode::LDA_CSR) == false &&
+        opcode_has_arg(OpCode::POP, &kind) == true && kind == ArgKind::RegOnly &&
         true;
 }
 
