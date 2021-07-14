@@ -4,7 +4,7 @@ project('daisa', 'cpp',
 
 includes = include_directories('include')
 
-shlib = library('daisa', 
+shlib = static_library('daisa', 
   'daisa.cpp',
   include_directories : includes,
 )

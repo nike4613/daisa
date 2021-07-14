@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <span>
+#include <array>
 #include <daisa/types.hpp>
 
 namespace daisa {
@@ -149,10 +150,10 @@ struct DisassemblyResult {
   std::span<u8 const> continueFrom;
   FailureReason reason;
 
-  constexpr DisassemblyResult(DisassemblyResult const&) noexcept = default;
-  constexpr DisassemblyResult(DisassemblyResult&&) noexcept = default;
-  constexpr DisassemblyResult& operator=(DisassemblyResult const&) noexcept = default;
-  constexpr DisassemblyResult& operator=(DisassemblyResult&&) noexcept = default;
+  //constexpr DisassemblyResult(DisassemblyResult const&) noexcept = default;
+  //constexpr DisassemblyResult(DisassemblyResult&&) noexcept = default;
+  //constexpr DisassemblyResult& operator=(DisassemblyResult const&) noexcept = default;
+  //constexpr DisassemblyResult& operator=(DisassemblyResult&&) noexcept = default;
 
   // intentionally implicit
   constexpr DisassemblyResult(FailureReason reason) noexcept : reason(reason) {}
@@ -333,7 +334,7 @@ namespace detail {
 }
 
 constexpr AssembleResult assemble_segment(std::span<Instruction const> input) noexcept {
-  auto result = AssembleResult({}, input, std::nullopt); // create our value on stack, with NVRO
+  auto result = AssembleResult{ std::array<u8, 256>{}, input, std::nullopt }; // create our value on stack, with NVRO
   detail::assemble_segment(result, result); //   because we weren't given a previous, we want to use the
                                             // same reference to avoid allocating multiple 256-byte blocks
   return result;
