@@ -25,6 +25,18 @@ any [ds:r] accesses use [ss:r] when r is either sp or bp
 
 push and pop's increment/decrement can also increment the stack segment register
 
+conditions:
+
+encoded in general as XX.Y, where XX is the flag select and Y is the negate flag
+
+fs | flag description
+---+---------------------
+00 | zero flag
+01 | carry flag
+10 | signed overflow flag
+11 | negative flag
+---+---------------------
+
 instructions:
 
 mnemonic    | description                                                                   | encoding
