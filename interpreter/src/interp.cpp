@@ -101,8 +101,8 @@ void interpret(
         && (old & 0x80) != (val & 0x80);
     };
     
-    auto addVal = [&](u8& val, u8 amt) {
-      auto sum = static_cast<i16>(val) + static_cast<i16>(amt);
+    auto addVal = [&](u8& val, u8 amt, bool carry) {
+      auto sum = static_cast<i16>(val) + static_cast<i16>(amt) + (carry ? 1 : 0);
       updateFlags2(sum, val, amt);
       registers.flags.c = (sum & 0x100) != 0;
       val = static_cast<u8>(sum & 0xff);
@@ -217,19 +217,22 @@ void interpret(
         std::swap(registers.a, regArg());
         break;
       case OpCode::INC_A:
-        addVal(registers.a, 1);
+        addVal(registers.a, 1, false);
         break;
       case OpCode::DEC_A:
         subVal(registers.a, 1);
         break;
       case OpCode::INC:
-        addVal(regArg(), 1);
+        addVal(regArg(), 1, false);
         break;
       case OpCode::DEC:
         subVal(regArg(), 1);
         break;
+      case OpCode::ADC:
+        addVal(registers.a, getArg(), registers.flags.c);
+        break;
       case OpCode::ADD:
-        addVal(registers.a, getArg());
+        addVal(registers.a, getArg(), false);
         break;
       case OpCode::SUB:
         subVal(registers.a, getArg());
@@ -241,6 +244,14 @@ void interpret(
       case OpCode::SHR:
         registers.flags.c = false;
         updateFlags(registers.a >>= 1);
+        break;
+      case OpCode::SRA:
+        {
+          registers.flags.c = false;
+          auto v = static_cast<i8>(registers.a);
+          v >>= 1;
+          updateFlags(registers.a = static_cast<u8>(v));
+        }
         break;
       case OpCode::ROL:
         {
@@ -270,7 +281,9 @@ void interpret(
         updateFlags(registers.a ^= getArg());
         break;
       case OpCode::CLR:
-        registers.a = 0;
+        updateFlags(registers.a = 0);
+        break;
+      case OpCode::CFLAGS:
         registers.flags = {};
         break;
 
