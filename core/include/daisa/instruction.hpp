@@ -107,8 +107,8 @@ namespace daisa {
     Overflow = 0b100,
     NotOverflow = 0b101,
 
-    E = 0b110,
-    NotE = 0b111,
+    Negative = 0b110,
+    NotNegative = 0b111,
   };
 
   struct DisassemblyResult;
