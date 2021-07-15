@@ -71,16 +71,19 @@ inc a       | increments the accumulator                                        
 dec a       | decrements the accumulator                                                    | 11000011
 inc r       | increments the value in r (r <- r+1)                                          | 10101rrr
 dec r       | decrements the value in r (r <- r-1)                                          | 10110rrr
+adc r       | adds r to the accumulator, with carry (a <- a+r+c)                            | 10111rrr
 add r       | adds r to the accumulator (a <- a+r)                                          | 01100rrr
 sub r       | subtracts r from the accumulator (a <- a-r)                                   | 01101rrr
 shl         | shift accumulator left 1                                                      | 11000100
 shr         | shift accumulator right 1                                                     | 11000101
+sra         | arithmetic shift right 1                                                      | 11010010
 rol         | rotate accumulator left 1                                                     | 11000110
 ror         | rotate accumulator right 1                                                    | 11000111
 and r       | bitwise and with accumulator (a <- a & r)                                     | 01110rrr
 or r        | bitwise or with accumulator (a <- a | r)                                      | 01111rrr
 xor r       | bitwise xor with accumulator (a <- a ^ r)                                     | 00000rrr
 clr         | zeroes the accumulator (a <- 0)                                               | 11001000
+cflags      | clears flags                                                                  | 11010001
 ------------+-------------------------------------------------------------------------------+---------
 eni         | enables interrupts                                                            | 11001110
 dsi         | disables interrupts                                                           | 11001111
