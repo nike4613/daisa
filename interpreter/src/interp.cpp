@@ -7,7 +7,7 @@
 using namespace daisa;
 using namespace daisa::interpreter;
 
-void interpret(
+void daisa::interpreter::interpret(
   Memory& mem,
   u16 startAddr,
   std::function<bool(Memory const&, RegisterPage const&)> pollInterrupt
@@ -114,6 +114,7 @@ void interpret(
       val = static_cast<u8>(sum & 0xff);
     };
 
+    bool queueIntEnable = false;
     switch (insn.opcode()) {
       case OpCode::NOP:
         break; // do nothing
@@ -288,7 +289,7 @@ void interpret(
         break;
 
       case OpCode::ENI:
-        intEnabled = true;
+        queueIntEnable = true;
         break;
       case OpCode::DSI:
         intEnabled = false;
@@ -296,7 +297,7 @@ void interpret(
       case OpCode::IRET:
         registers.ip = popStack();
         registers.cs = popStack();
-        intEnabled = true;
+        queueIntEnable = true;
         break;
       case OpCode::HLT:
         halt = true;
@@ -313,5 +314,8 @@ void interpret(
       registers.cs = seg;
       registers.ip = off;
     }
+
+    if (queueIntEnable)
+      intEnabled = true;
   }
 }
