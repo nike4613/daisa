@@ -56,12 +56,27 @@ void interpret(
     }
 
     auto insn = *disasm.instruction;
-    auto getRegArg = [&] {
+    auto regArg = [&]() -> decltype(auto) {
+      return registers.addressable[static_cast<u8>(insn.reg_argument())];
+    };
+    auto getArg = [&]() {
       if (auto reg = insn.reg_argument(); reg == Register::Imm) {
         return insn.immedidate();
       } else {
-        return registers.addressable[static_cast<u8>(reg)];
+        return regArg();
       }
+    };
+
+    auto regAddr = [&]() -> decltype(auto) {
+      auto off = getArg();
+      auto seg = [&] {
+        if (auto reg = insn.reg_argument(); reg == Register::SP || reg == Register::BP) {
+          return registers.ss;
+        } else {
+          return registers.ds;
+        }
+      }();
+      return mem.paged[seg][off];
     };
 
     auto pushStack = [&](u8 val) {
@@ -81,11 +96,11 @@ void interpret(
       case OpCode::JF:
         // cs <- a, ip <- r
         registers.cs = registers.a;
-        registers.ip = getRegArg();
+        registers.ip = getArg();
         break;
       case OpCode::JN:
         // ip <- r
-        registers.ip = getRegArg();
+        registers.ip = getArg();
         break;
       case OpCode::Jc:
         { // conditional near jump to immediate
@@ -105,6 +120,91 @@ void interpret(
             registers.ip = insn.immedidate();
         }
         break;
+
+      case OpCode::CALLN:
+        {
+          registers.csr = registers.cs;
+          auto tmp = registers.ip;
+          registers.ip = getArg();
+          registers.named.lr = tmp;
+        }
+        break;
+      case OpCode::CALLF:
+        {
+          registers.csr = registers.cs;
+          registers.cs = registers.a;
+          auto tmp = registers.ip;
+          registers.ip = getArg();
+          registers.named.lr = tmp;
+        }
+        break;
+      case OpCode::RET:
+        registers.cs = registers.csr;
+        registers.ip = registers.named.lr;
+        break;
+
+      case OpCode::PUSH:
+        pushStack(getArg());
+        break;
+      case OpCode::PUSH_CSR:
+        pushStack(registers.csr);
+        break;
+      case OpCode::POP:
+        regArg() = popStack();
+        break;
+      case OpCode::POP_CSR:
+        registers.csr = popStack();
+        break;
+
+      case OpCode::LDA_CSR:
+        registers.a = registers.csr;
+        break;
+      case OpCode::STA_CSR:
+        registers.csr = registers.a;
+        break;
+
+      case OpCode::LDDS:
+        registers.ds = getArg();
+        break;
+      case OpCode::STDS:
+        regArg() = registers.ds;
+        break;
+      case OpCode::LDSS:
+        registers.ss = getArg();
+        break;
+      case OpCode::STSS:
+        regArg() = registers.ss;
+        break;
+
+      case OpCode::LDA:
+        registers.a = getArg();
+        break;
+      case OpCode::STA:
+        regArg() = registers.a;
+        break;
+      case OpCode::LDM:
+        registers.a = regAddr();
+        break;
+      case OpCode::STM:
+        regAddr() = registers.a;
+        break;
+
+      case OpCode::SWP:
+        std::swap(registers.a, regArg());
+        break;
+      case OpCode::INC_A:
+        registers.a++;
+        break;
+      case OpCode::DEC_A:
+        registers.a--;
+        break;
+      case OpCode::INC:
+        regArg()++;
+        break;
+      case OpCode::DEC:
+        regArg()--;
+        break;
+
       // TODO: rest of these
       case OpCode::ENI:
         intEnabled = true;
