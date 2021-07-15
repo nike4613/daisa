@@ -16,13 +16,13 @@ namespace daisa::interpreter {
 
     struct Flags {
       /// zero
-      u8 z : 1;
+      bool z : 1;
       /// carry
-      u8 c : 1;
-      /// overflow
-      u8 o : 1;
+      bool c : 1;
+      /// signed overflow
+      bool o : 1;
       /// negative
-      u8 n : 1;
+      bool n : 1;
     };
 
     struct AddressableRegs {

@@ -90,6 +90,30 @@ void interpret(
       return mem.paged[registers.ss][registers.named.sp];
     };
 
+    auto updateFlags = [&](u8 val) {
+      registers.flags.z = val == 0;
+      registers.flags.n = (val & 0x80) != 0;
+    };
+    auto updateFlags2 = [&](u8 val, u8 old, u8 arg) {
+      updateFlags(val);
+      registers.flags.o = 
+        (old & 0x80) == (arg & 0x80)
+        && (old & 0x80) != (val & 0x80);
+    };
+    
+    auto addVal = [&](u8& val, u8 amt) {
+      auto sum = static_cast<i16>(val) + static_cast<i16>(amt);
+      updateFlags2(sum, val, amt);
+      registers.flags.c = (sum & 0x100) != 0;
+      val = static_cast<u8>(sum & 0xff);
+    };
+    auto subVal = [&](u8& val, u8 amt) {
+      auto sum = static_cast<i16>(val) - static_cast<i16>(amt);
+      updateFlags2(sum, val, amt);
+      registers.flags.c = (sum & 0x100) != 0;
+      val = static_cast<u8>(sum & 0xff);
+    };
+
     switch (insn.opcode()) {
       case OpCode::NOP:
         break; // do nothing
@@ -193,19 +217,63 @@ void interpret(
         std::swap(registers.a, regArg());
         break;
       case OpCode::INC_A:
-        registers.a++;
+        addVal(registers.a, 1);
         break;
       case OpCode::DEC_A:
-        registers.a--;
+        subVal(registers.a, 1);
         break;
       case OpCode::INC:
-        regArg()++;
+        addVal(regArg(), 1);
         break;
       case OpCode::DEC:
-        regArg()--;
+        subVal(regArg(), 1);
+        break;
+      case OpCode::ADD:
+        addVal(registers.a, getArg());
+        break;
+      case OpCode::SUB:
+        subVal(registers.a, getArg());
+        break;
+      case OpCode::SHL:
+        registers.flags.c = (registers.a & 0x80) != 0;
+        updateFlags(registers.a <<= 1);
+        break;
+      case OpCode::SHR:
+        registers.flags.c = false;
+        updateFlags(registers.a >>= 1);
+        break;
+      case OpCode::ROL:
+        {
+          auto& a = registers.a;
+          a = (a << 1) | ((a & 0x80) >> 7);
+          updateFlags(a);
+        }
+        break;
+      case OpCode::ROR:
+        {
+          auto& a = registers.a;
+          a = (a >> 1) | ((a & 0x01) << 7);
+          updateFlags(a);
+        }
+        break;
+      case OpCode::AND:
+        registers.flags.c = registers.flags.o = false;
+        updateFlags(registers.a &= getArg());
+        break;
+      case OpCode::OR:
+        registers.flags.c = registers.flags.o = false;
+        updateFlags(registers.a |= getArg());
+        break;
+      case OpCode::XOR:
+        registers.flags.c = true;
+        registers.flags.o = false;
+        updateFlags(registers.a ^= getArg());
+        break;
+      case OpCode::CLR:
+        registers.a = 0;
+        registers.flags = {};
         break;
 
-      // TODO: rest of these
       case OpCode::ENI:
         intEnabled = true;
         break;
